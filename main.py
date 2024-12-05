@@ -79,6 +79,5 @@ def get_distance(frame, landmark_list):
 
     return distance
 
-
 if __name__ == '__main__':
     main()

@@ -1,88 +1,95 @@
 import cv2
-import numpy as np
 import mediapipe as mp
-from math import hypot
-from pycaw.pycaw import AudioUtilities, IAudioEndpointVolume
-from ctypes import cast, POINTER
-from comtypes import CLSCTX_ALL
+import math
 
+# Khởi tạo MediaPipe
+mp_hands = mp.solutions.hands
+mp_drawing = mp.solutions.drawing_utils
 
-def main():
-    devices = AudioUtilities.GetSpeakers()
-    interface = devices.Activate(IAudioEndpointVolume._iid_, CLSCTX_ALL, None)
-    volume = cast(interface, POINTER(IAudioEndpointVolume))
-    volRange = volume.GetVolumeRange()
-    minVol, maxVol, _ = volRange
+# Hàm tính khoảng cách giữa hai điểm
+def calculate_distance(p1, p2):
+    return math.sqrt((p1[0] - p2[0])**2 + (p1[1] - p2[1])**2)
 
-    mpHands = mp.solutions.hands
-    hands = mpHands.Hands(
-        static_image_mode=False,
-        model_complexity=1,
-        min_detection_confidence=0.75,
-        min_tracking_confidence=0.75,
-        max_num_hands=2)
+def is_v_sign(landmarks, image_width, image_height):
+    # Lấy tọa độ cần thiết
+    fingers = {
+        "index_tip": landmarks[8],
+        "index_dip": landmarks[7],
+        "middle_tip": landmarks[12],
+        "middle_dip": landmarks[11],
+        "ring_tip": landmarks[16],
+        "ring_dip": landmarks[15],
+        "pinky_tip": landmarks[20],
+        "pinky_dip": landmarks[19],
+        "thumb_tip": landmarks[4],
+        "thumb_ip": landmarks[3],
+    }
 
-    draw = mp.solutions.drawing_utils
-    cap = cv2.VideoCapture(0)
+    # Chuyển tọa độ keypoint từ tỷ lệ (0-1) sang pixel
+    for key, landmark in fingers.items():
+        fingers[key] = (int(landmark.x * image_width), int(landmark.y * image_height))
+    
+    # Kiểm tra hai ngón trỏ và giữa được duỗi ra (tip xa hơn DIP)
+    index_straight = fingers["index_tip"][1] < fingers["index_dip"][1]
+    middle_straight = fingers["middle_tip"][1] < fingers["middle_dip"][1]
 
-    try:
-        while cap.isOpened():
-            ret, frame = cap.read()
-            if not ret:
-                break
-            frame = cv2.flip(frame, 1)
-            frameRGB = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-            processed = hands.process(frameRGB)
+    point = max(landmarks[6].y, landmarks[10].y)
 
-            right_landmark_list = get_right_hand_landmarks(frame, processed, draw, mpHands)
-            # Change volume using the right hand
-            if right_landmark_list:
-                right_distance = get_distance(frame, right_landmark_list)
-                vol = np.interp(right_distance, [50, 220], [minVol, maxVol])
-                volume.SetMasterVolumeLevel(vol, None)
+    # Kiểm tra ngón cái, nhẫn và út gập lại (tip gần hơn DIP)
+    thumb_folded = landmarks[4].y > point
+    ring_folded = landmarks[16].y > point
+    pinky_folded = landmarks[20].y > point
 
-            cv2.imshow('Image', frame)
-            if cv2.waitKey(1) & 0xFF == ord('q'):
-                break
-    finally:
-        cap.release()
-        cv2.destroyAllWindows()
+    # Khoảng cách giữa ngón trỏ và giữa đủ lớn
+    v_distance = calculate_distance(fingers["index_tip"], fingers["middle_tip"])
+    is_v = index_straight and middle_straight and thumb_folded and ring_folded and pinky_folded and v_distance > 50  # Điều chỉnh ngưỡng
 
+    return is_v
 
-def get_right_hand_landmarks(frame, processed, draw, mpHands):
-    right_landmark_list = []
+# Khởi động video
+cap = cv2.VideoCapture(0)
 
-    if processed.multi_hand_landmarks:
-        for idx, handlm in enumerate(processed.multi_hand_landmarks):
-            for landmark_idx, found_landmark in enumerate(handlm.landmark):
-                height, width, _ = frame.shape
-                x, y = int(found_landmark.x * width), int(found_landmark.y * height)
-                if landmark_idx == 4 or landmark_idx == 8:
-                    right_landmark_list.append([landmark_idx, x, y])
+# Khởi tạo Mediapipe Hands
+with mp_hands.Hands(
+    static_image_mode=False,
+    max_num_hands=1,
+    min_detection_confidence=0.5,
+    min_tracking_confidence=0.5
+) as hands:
+    while cap.isOpened():
+        ret, frame = cap.read()
+        if not ret:
+            break
 
-            # Draw hand landmarks
-            if idx == 0:  # Assume the first detected hand is the right hand
-                draw.draw_landmarks(frame, handlm, mpHands.HAND_CONNECTIONS)
+        # Chuyển sang RGB để xử lý
+        image = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        image.flags.writeable = False
+        results = hands.process(image)
 
-    # Check if exactly two landmarks (thumb and index finger) are detected
-    if len(right_landmark_list) == 2:
-        return right_landmark_list
-    else:
-        return None
+        # Chuyển lại ảnh về BGR để hiển thị
+        image.flags.writeable = True
+        image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
 
+        if results.multi_hand_landmarks:
+            for hand_landmarks in results.multi_hand_landmarks:
+                # Vẽ bàn tay và keypoints
+                mp_drawing.draw_landmarks(image, hand_landmarks, mp_hands.HAND_CONNECTIONS)
 
-def get_distance(frame, landmark_list):
-    if len(landmark_list) < 2:
-        return
-    (x1, y1), (x2, y2) = (landmark_list[0][1], landmark_list[0][2]), \
-        (landmark_list[1][1], landmark_list[1][2])
-    cv2.circle(frame, (x1, y1), 7, (0, 255, 0), cv2.FILLED)
-    cv2.circle(frame, (x2, y2), 7, (0, 255, 0), cv2.FILLED)
-    cv2.line(frame, (x1, y1), (x2, y2), (0, 255, 0), 3)
-    distance = hypot(x2 - x1, y2 - y1)
+                # Lấy danh sách keypoints
+                h, w, _ = image.shape
+                landmarks = hand_landmarks.landmark
 
-    return distance
+                # Kiểm tra cử chỉ "V"
+                if is_v_sign(landmarks, w, h):
+                    cv2.putText(image, "V-Sign Detected", (10, 50), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
 
+        # Hiển thị kết quả
+        cv2.imshow('Hand Gesture Recognition', image)
 
-if __name__ == '__main__':
-    main()
+        # Nhấn 'q' để thoát
+        if cv2.waitKey(1) & 0xFF == ord('q'):
+            break
+
+# Giải phóng tài nguyên
+cap.release()
+cv2.destroyAllWindows()
