@@ -156,30 +156,30 @@ with mp_hands.Hands(
                 else:
                     vol = np.interp(angle, [0.6, 0.96], [maxVol, minVol])
                     volume.SetMasterVolumeLevel(vol, None)
-                # Kiểm tra cử chỉ "V"
-                # if is_v_sign(landmarks, w, h):
-                #     if not bool_v_sign:
-                #         cv2.putText(image, "V-Sign Detected", (10, 50), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
-                #     bool_v_sign = True
-                #     bool_adjust_volume = True
+                Kiểm tra cử chỉ "V"
+                if is_v_sign(landmarks, w, h):
+                    if not bool_v_sign:
+                        cv2.putText(image, "V-Sign Detected", (10, 50), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
+                    bool_v_sign = True
+                    bool_adjust_volume = True
 
-                # if bool_adjust_volume:
-                #     print("Adjust Volume")
+                if bool_adjust_volume:
+                    print("Adjust Volume")
 
-                # if is_like_sign(landmarks, w, h):
-                #     count_like_and_dislike += 1
-                # if is_dislike_sign(landmarks, w, h):
-                #     count_like_and_dislike -= 1
+                if is_like_sign(landmarks, w, h):
+                    count_like_and_dislike += 1
+                if is_dislike_sign(landmarks, w, h):
+                    count_like_and_dislike -= 1
 
-                # if count_like_and_dislike > 10:
-                #     cv2.putText(image, "Like Sign Detected", (40, 50), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
-                #     count_like_and_dislike = 0
-                #     bool_v_sign = False
+                if count_like_and_dislike > 10:
+                    cv2.putText(image, "Like Sign Detected", (40, 50), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
+                    count_like_and_dislike = 0
+                    bool_v_sign = False
 
-                # if count_like_and_dislike < -10:
-                #     cv2.putText(image, "Dislike Sign Detected", (40, 50), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
-                #     count_like_and_dislike = 0
-                #     bool_v_sign = False
+                if count_like_and_dislike < -10:
+                    cv2.putText(image, "Dislike Sign Detected", (40, 50), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
+                    count_like_and_dislike = 0
+                    bool_v_sign = False
         # Hiển thị kết quả
         cv2.imshow('Hand Gesture Recognition', image)
 
