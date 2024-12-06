@@ -1,10 +1,22 @@
 import cv2
 import mediapipe as mp
 import math
+import winsound
+from comtypes import CLSCTX_ALL
+from pycaw.pycaw import AudioUtilities, IAudioEndpointVolume
+from ctypes import cast, POINTER
+import numpy as np
 
 # Khởi tạo MediaPipe
 mp_hands = mp.solutions.hands
 mp_drawing = mp.solutions.drawing_utils
+
+# Khởi tạo MediaPipe
+devices = AudioUtilities.GetSpeakers()
+interface = devices.Activate(IAudioEndpointVolume._iid_, CLSCTX_ALL, None)
+volume = cast(interface, POINTER(IAudioEndpointVolume))
+volRange = volume.GetVolumeRange()
+minVol, maxVol, _ = volRange
 
 # Hàm tính khoảng cách giữa hai điểm
 def calculate_distance(p1, p2):
@@ -71,7 +83,22 @@ def is_dislike_sign(landmarks, image_width, image_height):
     else:
         is_dislike = False
     return is_dislike
+    
+def control_volume(landmarks, image_width, image_height):
+    vertice_x, vertice_y = landmarks[0].x * image_width, landmarks[0].y * image_height
+    thumb_x, thumb_y = landmarks[4].x * image_width, landmarks[4].y * image_height
+    index_x, index_y = landmarks[8].x * image_width, landmarks[8].y * image_height
 
+    vector_thumb = (thumb_x - vertice_x, thumb_y - vertice_y)
+    vector_index = (index_x - vertice_x, index_y - vertice_y)
+    
+    dot_product = vector_thumb[0] * vector_index[0] + vector_thumb[1] * vector_index[1]
+    magnitude_thumb = math.sqrt(vector_thumb[0]**2 + vector_thumb[1]**2)
+    magnitude_index = math.sqrt(vector_index[0]**2 + vector_index[1]**2)
+
+    cos_theta = dot_product / (magnitude_thumb * magnitude_index)
+
+    return cos_theta
 
 # Khởi động video
 cap = cv2.VideoCapture(0)
@@ -117,26 +144,36 @@ with mp_hands.Hands(
                 if is_v_sign(landmarks, w, h):
                     if not bool_v_sign:
                         cv2.putText(image, "V-Sign Detected", (10, 50), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
+
                     bool_v_sign = True
                     bool_adjust_volume = True
 
                 if bool_adjust_volume:
-                    print("Adjust Volume")
+                    angle = control_volume(landmarks, w, h)
+                    if angle > 0.96:
+                        volume.SetMasterVolumeLevelScalar(0, None)
+                    elif angle < 0.6:
+                        volume.SetMasterVolumeLevelScalar(1, None)
+                    else:
+                        vol = np.interp(angle, [0.6, 0.96], [maxVol, minVol])
+                        volume.SetMasterVolumeLevel(vol, None)
 
                 if is_like_sign(landmarks, w, h):
                     count_like_and_dislike += 1
                 if is_dislike_sign(landmarks, w, h):
                     count_like_and_dislike -= 1
 
-                if count_like_and_dislike > 10:
+                if count_like_and_dislike > 5:
                     cv2.putText(image, "Like Sign Detected", (40, 50), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
                     count_like_and_dislike = 0
                     bool_v_sign = False
+                    bool_adjust_volume = False
 
-                if count_like_and_dislike < -10:
+                if count_like_and_dislike < -5:
                     cv2.putText(image, "Dislike Sign Detected", (40, 50), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
                     count_like_and_dislike = 0
                     bool_v_sign = False
+                    bool_adjust_volume = False
         # Hiển thị kết quả
         cv2.imshow('Hand Gesture Recognition', image)
 
