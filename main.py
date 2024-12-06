@@ -5,6 +5,7 @@ from math import hypot
 from pycaw.pycaw import AudioUtilities, IAudioEndpointVolume
 from ctypes import cast, POINTER
 from comtypes import CLSCTX_ALL
+from test import control_volume, is_v_sign
 
 
 def main():
@@ -34,12 +35,34 @@ def main():
             frameRGB = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
             processed = hands.process(frameRGB)
 
-            right_landmark_list = get_right_hand_landmarks(frame, processed, draw, mpHands)
-            # Change volume using the right hand
-            if right_landmark_list:
-                right_distance = get_distance(frame, right_landmark_list)
-                vol = np.interp(right_distance, [50, 220], [minVol, maxVol])
-                volume.SetMasterVolumeLevel(vol, None)
+            if processed.multi_hand_landmarks:
+                for hand_landmarks in processed.multi_hand_landmarks:
+
+                    draw.draw_landmarks(frame, hand_landmarks, mpHands.HAND_CONNECTIONS)
+
+                    h, w, _ = frame.shape
+                    landmarks = hand_landmarks.landmark
+                    angle, thumb, index, vertice = control_volume([(landmark.x * w, landmark.y * h) for landmark in landmarks], w, h)
+                    cv2.line(frame, (int(thumb[0]), int(thumb[1])), (int(vertice[0]), int(vertice[1]), (255, 0, 0), 2))
+                    cv2.line(frame, (int(index[0]), int(index[1])), (int(vertice[0]), int(vertice[1]), (255, 0, 0), 2))
+                    cv2.putText(frame, f"Angle: {angle}", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
+
+                    if is_v_sign(landmarks, w, h):
+                        cv2.putText(frame, "V sign detected", (10, 60), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
+
+                    if angle > 0.96:
+                        volume.SetMasterVolumeLevelScalar(0, None)
+                    elif angle < 0.6:
+                        volume.SetMasterVolumeLevelScalar(1, None)
+                    else:
+                        vol = np.interp(angle, [0.6, 0.96], [maxVol, minVol])
+                        volume.SetMasterVolumeLevel(vol, None)
+            # right_landmark_list = get_right_hand_landmarks(frame, processed, draw, mpHands)
+            # # Change volume using the right hand
+            # if right_landmark_list:
+            #     right_distance = get_distance(frame, right_landmark_list)
+            #     vol = np.interp(right_distance, [50, 220], [minVol, maxVol])
+            #     volume.SetMasterVolumeLevel(vol, None)
 
             cv2.imshow('Image', frame)
             if cv2.waitKey(1) & 0xFF == ord('q'):

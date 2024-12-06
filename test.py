@@ -46,7 +46,22 @@ def is_v_sign(landmarks, image_width, image_height):
 
     return is_v
 
-# Khởi động video
+def control_volume(landmarks, image_width, image_height):
+    vertice_x, vertice_y = landmarks[0]
+    thumb_x, thumb_y = landmarks[4]
+    index_x, index_y = landmarks[8]
+
+    vector_thumb = (thumb_x - vertice_x, thumb_y - vertice_y)
+    vector_index = (index_x - vertice_x, index_y - vertice_y)
+    
+    dot_product = vector_thumb[0] * vector_index[0] + vector_thumb[1] * vector_index[1]
+    magnitude_thumb = math.sqrt(vector_thumb[0]**2 + vector_thumb[1]**2)
+    magnitude_index = math.sqrt(vector_index[0]**2 + vector_index[1]**2)
+
+    cos_theta = dot_product / (magnitude_thumb * magnitude_index)
+
+    return cos_theta, (thumb_x, thumb_y), (index_x, index_y), (vertice_x, vertice_y)
+
 cap = cv2.VideoCapture(0)
 
 # Khởi tạo Mediapipe Hands
@@ -78,6 +93,12 @@ with mp_hands.Hands(
                 # Lấy danh sách keypoints
                 h, w, _ = image.shape
                 landmarks = hand_landmarks.landmark
+
+                angle, thumb, index, vertice = control_volume([(landmark.x * w, landmark.y * h) for landmark in landmarks], w, h)
+                cv2.line(image, (int(thumb[0]), int(thumb[1])), (int(vertice[0]), int(vertice[1])), (255, 0, 0), 2)
+                cv2.line(image, (int(index[0]), int(index[1])), (int(vertice[0]), int(vertice[1])), (255, 0, 0), 2)
+
+                cv2.putText(image, f"Angle: {angle}", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
 
                 # Kiểm tra cử chỉ "V"
                 if is_v_sign(landmarks, w, h):
