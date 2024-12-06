@@ -127,10 +127,6 @@ with mp_hands.Hands(
         image.flags.writeable = True
         image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
 
-        if results.multi_hand_landmarks:
-            for hand_landmarks in results.multi_hand_landmarks:
-
-
         if bool_v_sign:
             cv2.putText(image, "On Mode Adjust Volume", (10, 50), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
 
@@ -156,7 +152,7 @@ with mp_hands.Hands(
                 else:
                     vol = np.interp(angle, [0.6, 0.96], [maxVol, minVol])
                     volume.SetMasterVolumeLevel(vol, None)
-                Kiểm tra cử chỉ "V"
+                # Kiểm tra cử chỉ "V"
                 if is_v_sign(landmarks, w, h):
                     if not bool_v_sign:
                         cv2.putText(image, "V-Sign Detected", (10, 50), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
