@@ -5,7 +5,7 @@ from math import hypot
 from pycaw.pycaw import AudioUtilities, IAudioEndpointVolume
 from ctypes import cast, POINTER
 from comtypes import CLSCTX_ALL
-from test import control_volume, is_v_sign
+from IoT.test import control_volume, is_v_sign
 
 
 def main():
