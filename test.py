@@ -7,6 +7,11 @@ from pycaw.pycaw import AudioUtilities, IAudioEndpointVolume
 from ctypes import cast, POINTER
 import numpy as np
 import time
+import pygame
+
+pygame.mixer.init()
+pygame.mixer.music.load("duck.mp3")
+
 
 # Khởi tạo MediaPipe
 mp_hands = mp.solutions.hands
@@ -142,6 +147,7 @@ with mp_hands.Hands(
 
         if bool_v_sign:
             cv2.putText(image, "On Mode Adjust Volume", (10, 50), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
+            
         else:   
             cv2.putText(image, "Off Mode Adjust Volume", (10, 50), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
 
@@ -162,6 +168,9 @@ with mp_hands.Hands(
                 if is_v_sign(landmarks, w, h):
                     if not bool_v_sign:
                         cv2.putText(image, "V-Sign Detected", (10, 50), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
+                        pygame.mixer.music.play()
+                        while pygame.mixer.music.get_busy():
+                            pass
 
                     bool_v_sign = True
                     bool_adjust_volume = True
@@ -181,7 +190,6 @@ with mp_hands.Hands(
                     else:
                         vol = angle / 55.0
                         vol = round(vol,2)
-                        print("vol: ", vol)
                         volume.SetMasterVolumeLevelScalar(vol, None)
                     if last_angle is not None and abs(angle - last_angle) < angle_threshold:
                         stable_frame_count += 1
@@ -220,6 +228,7 @@ with mp_hands.Hands(
                         bool_v_sign = False
                         bool_adjust_volume = False
                         bool_display_expected_volume = False
+                        
 
                     if count_like_and_dislike < -10:
                         cv2.putText(image, "Dislike Sign Detected", (40, 50), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
@@ -227,6 +236,10 @@ with mp_hands.Hands(
                         bool_v_sign = True
                         bool_adjust_volume = True
                         bool_display_expected_volume = False
+
+                        pygame.mixer.music.play()
+                        while pygame.mixer.music.get_busy():
+                            pass
         # Hiển thị kết quả
         cv2.imshow('Hand Gesture Recognition', image)
 
