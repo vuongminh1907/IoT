@@ -7,11 +7,12 @@ from pycaw.pycaw import AudioUtilities, IAudioEndpointVolume
 from ctypes import cast, POINTER
 import numpy as np
 import time
-import pygame
+import serial
 
-pygame.mixer.init()
-pygame.mixer.music.load("duck.mp3")
+arduino = serial.Serial(port='COM3', baudrate=9600, timeout=1)
 
+# def control_led(state):
+#     arduino.write(state.encode())  # Gửi lệnh tới Arduino
 
 # Khởi tạo MediaPipe
 mp_hands = mp.solutions.hands
@@ -123,6 +124,10 @@ last_angle = None
 angle_threshold = 5
 current_time = time.time()
 current_volume = volume.GetMasterVolumeLevel()
+control_led_bool = False
+
+
+volume_to_arduino = ['0','1','2','3','4','5','6','7','8','9']
 
 # Khởi tạo Mediapipe Hands
 with mp_hands.Hands(
@@ -157,8 +162,8 @@ with mp_hands.Hands(
 
         if results.multi_hand_landmarks:
             for hand_landmarks in results.multi_hand_landmarks:
-                # Vẽ bàn tay và keypoints
-                mp_drawing.draw_landmarks(image, hand_landmarks, mp_hands.HAND_CONNECTIONS)
+                # # Vẽ bàn tay và keypoints
+                # mp_drawing.draw_landmarks(image, hand_landmarks, mp_hands.HAND_CONNECTIONS)
 
                 # Lấy danh sách keypoints
                 h, w, _ = image.shape
@@ -168,9 +173,6 @@ with mp_hands.Hands(
                 if is_v_sign(landmarks, w, h):
                     if not bool_v_sign:
                         cv2.putText(image, "V-Sign Detected", (10, 50), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
-                        pygame.mixer.music.play()
-                        while pygame.mixer.music.get_busy():
-                            pass
 
                     bool_v_sign = True
                     bool_adjust_volume = True
@@ -182,15 +184,10 @@ with mp_hands.Hands(
                 if bool_adjust_volume and bool_v_sign:
                     angle = control_volume(landmarks, w, h)
                     angle = int(angle/3) * 3
-                    print("angle:, ", angle)
-                    if angle > 55:
-                        volume.SetMasterVolumeLevelScalar(1, None)
-                    elif angle <= 6:
-                        volume.SetMasterVolumeLevelScalar(0, None)
-                    else:
-                        vol = angle / 55.0
-                        vol = round(vol,2)
-                        volume.SetMasterVolumeLevelScalar(vol, None)
+                    index_to_arduino = angle // 6 if angle < 55 else 9
+                    print("index: ",index_to_arduino)
+                    # print("arduino: ",vol_to_arduino)
+                    arduino.write(bytes(volume_to_arduino[index_to_arduino], 'utf-8'))
                     if last_angle is not None and abs(angle - last_angle) < angle_threshold:
                         stable_frame_count += 1
                     else:
@@ -237,9 +234,6 @@ with mp_hands.Hands(
                         bool_adjust_volume = True
                         bool_display_expected_volume = False
 
-                        pygame.mixer.music.play()
-                        while pygame.mixer.music.get_busy():
-                            pass
         # Hiển thị kết quả
         cv2.imshow('Hand Gesture Recognition', image)
 

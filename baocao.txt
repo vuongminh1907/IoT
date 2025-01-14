@@ -1,0 +1,8 @@
+Thành viên nhóm 8
+- Vương Đình Minh - 20210610
+- Nguyễn Sỹ Trọng - 20210866
+
+DEMO APP bằng MIT app inventor
+- Connect Bluetooth với mạch
+- Điều khiển on off quạt và đèn
+- Get info để lấy thông tin
